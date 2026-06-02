@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from fastapi.responses import Response
 from nicegui import app as ni_app
 from nicegui import ui
 
@@ -32,7 +33,9 @@ class ApiClient:
 
     def __init__(self, base_url: str) -> None:
         self._base = base_url.rstrip("/")
-        self._client = httpx.AsyncClient(timeout=60.0)
+        # trust_env=False：禁止 httpx 读取 http_proxy 等环境变量，
+        # 避免本地请求被系统代理（如 Clash）拦截返回 502
+        self._client = httpx.AsyncClient(timeout=60.0, trust_env=False)
 
     async def upload(self, file_bytes: bytes, filename: str) -> str:
         """上传视频，返回 job_id。"""
@@ -64,8 +67,8 @@ class ApiClient:
         return resp.json()["screenshots"]
 
     def screenshot_url(self, job_id: str, filename: str) -> str:
-        """返回截图图片的直接 URL（供 ui.image 使用）。"""
-        return f"{self._base}/jobs/{job_id}/screenshots/{filename}"
+        """返回截图图片的代理 URL（由前端服务器转发，手机等设备均可访问）。"""
+        return f"/img-proxy/{job_id}/{filename}"
 
     async def generate_docx(self, job_id: str) -> None:
         """启动 DOCX 生成。"""
@@ -73,8 +76,8 @@ class ApiClient:
         resp.raise_for_status()
 
     def download_url(self, job_id: str) -> str:
-        """返回 DOCX 下载链接。"""
-        return f"{self._base}/jobs/{job_id}/download"
+        """返回 DOCX 下载代理链接（前端转发，手机等设备均可下载）。"""
+        return f"/docx-proxy/{job_id}"
 
     async def stream_progress(self, job_id: str):
         """异步生成 SSE 事件（每次 yield 一个 dict）。"""
@@ -111,6 +114,12 @@ class ScreenExportApp:
         self._file_bytes: bytes | None = None
         self._filename: str = "video.mp4"
 
+        # 截图分页
+        PAGE_SIZE: int = 6           # 每页显示张数
+        self._page_size: int = PAGE_SIZE
+        self._all_screenshots: list[str] = []
+        self._current_page: int = 0
+
         # UI 组件引用（build 阶段赋值）
         self._upload_label: ui.label | None = None
         self._btn_start: ui.button | None = None
@@ -119,6 +128,10 @@ class ScreenExportApp:
         self._progress_bar: ui.linear_progress | None = None
         self._log: ui.log | None = None
         self._preview_grid: ui.grid | None = None
+        self._preview_expansion: ui.expansion | None = None
+        self._page_label: ui.label | None = None
+        self._btn_prev: ui.button | None = None
+        self._btn_next: ui.button | None = None
         self._status_label: ui.label | None = None
 
         # 参数绑定
@@ -146,10 +159,10 @@ class ScreenExportApp:
             ui.label("上传视频").classes("text-lg font-semibold mb-2")
             self._upload_label = ui.label("未选择文件").classes("text-gray-500 text-sm")
 
-            def handle_upload(e):
-                self._file_bytes = e.content.read()
-                self._filename = e.name
-                self._upload_label.set_text(f"已选择：{e.name}（{len(self._file_bytes) / 1024 / 1024:.1f} MB）")
+            async def handle_upload(e):
+                self._file_bytes = await e.file.read()
+                self._filename = e.file.name
+                self._upload_label.set_text(f"已选择：{e.file.name}（{len(self._file_bytes) / 1024 / 1024:.1f} MB）")
                 if self._btn_start:
                     self._btn_start.enable()
 
@@ -224,8 +237,19 @@ class ScreenExportApp:
             self._log = ui.log(max_lines=200).classes("w-full h-40 font-mono text-xs")
 
     def _build_preview_section(self) -> None:
-        with ui.card().classes("w-full"):
-            ui.label("截图预览").classes("text-lg font-semibold mb-2")
+        self._preview_expansion = ui.expansion("截图预览", icon="photo_library") \
+            .classes("w-full")
+        with self._preview_expansion:
+            # 翻页控制栏
+            with ui.row().classes("w-full items-center justify-between mb-2"):
+                self._btn_prev = ui.button(
+                    icon="chevron_left", on_click=self._on_prev_page
+                ).props("flat round dense")
+                self._page_label = ui.label("").classes("text-sm text-gray-500")
+                self._btn_next = ui.button(
+                    icon="chevron_right", on_click=self._on_next_page
+                ).props("flat round dense")
+            # 图片网格
             self._preview_grid = ui.grid(columns=3).classes("w-full gap-2")
 
     # ── 事件处理 ──────────────────────────────────────
@@ -241,7 +265,10 @@ class ScreenExportApp:
         self._btn_download.disable()
         self._log.clear()
         self._progress_bar.set_value(0)
+        self._all_screenshots = []
+        self._current_page = 0
         self._preview_grid.clear()
+        self._preview_expansion.set_text("截图预览")
         self._set_status("正在上传视频…")
 
         try:
@@ -298,20 +325,54 @@ class ScreenExportApp:
             self._btn_start.enable()
 
     async def _load_screenshots(self) -> None:
-        """处理完成后从后端加载截图列表并渲染预览。"""
+        """处理完成后从后端加载截图列表，初始化分页并渲染第一页。"""
         if not self._job_id:
             return
         try:
-            filenames = await self._api.list_screenshots(self._job_id)
-            self._preview_grid.clear()
-            with self._preview_grid:
-                for name in filenames:
-                    url = self._api.screenshot_url(self._job_id, name)
-                    with ui.card().tight():
-                        ui.image(url).classes("w-full")
-                        ui.label(name).classes("text-xs text-center text-gray-500 py-1")
+            self._all_screenshots = await self._api.list_screenshots(self._job_id)
+            self._current_page = 0
+            total = len(self._all_screenshots)
+            # 更新折叠面板标题
+            self._preview_expansion.set_text(f"截图预览（共 {total} 张）")
+            self._preview_expansion.open()
+            self._render_page()
         except Exception as exc:
             ui.notify(f"加载截图失败：{exc}", type="warning")
+
+    def _render_page(self) -> None:
+        """渲染当前页的截图网格并更新翻页控件状态。"""
+        total = len(self._all_screenshots)
+        total_pages = max(1, (total + self._page_size - 1) // self._page_size)
+        page = self._current_page
+        start = page * self._page_size
+        end = min(start + self._page_size, total)
+        page_files = self._all_screenshots[start:end]
+
+        self._preview_grid.clear()
+        with self._preview_grid:
+            for name in page_files:
+                url = self._api.screenshot_url(self._job_id, name)
+                with ui.card().tight():
+                    ui.image(url).classes("w-full")
+                    ui.label(name).classes("text-xs text-center text-gray-500 py-1")
+
+        self._page_label.set_text(f"第 {page + 1} / {total_pages} 页")
+        if self._btn_prev:
+            self._btn_prev.set_enabled(page > 0)
+        if self._btn_next:
+            self._btn_next.set_enabled(page < total_pages - 1)
+
+    def _on_prev_page(self) -> None:
+        if self._current_page > 0:
+            self._current_page -= 1
+            self._render_page()
+
+    def _on_next_page(self) -> None:
+        total = len(self._all_screenshots)
+        total_pages = max(1, (total + self._page_size - 1) // self._page_size)
+        if self._current_page < total_pages - 1:
+            self._current_page += 1
+            self._render_page()
 
     async def _on_generate(self) -> None:
         """触发后端生成 DOCX。"""
@@ -369,6 +430,33 @@ class ScreenExportApp:
 # ──────────────────────────────────────────────────────────────────────────────
 
 _api_client = ApiClient(config.API_BASE_URL)
+
+
+@ni_app.get("/img-proxy/{job_id}/{filename}")
+async def proxy_screenshot(job_id: str, filename: str) -> Response:
+    """将截图请求代理到后端，解决手机访问 localhost 失败的问题。"""
+    safe_name = Path(filename).name
+    url = f"{config.API_BASE_URL}/jobs/{job_id}/screenshots/{safe_name}"
+    async with httpx.AsyncClient(trust_env=False) as client:
+        resp = await client.get(url)
+    return Response(
+        content=resp.content,
+        media_type=resp.headers.get("content-type", "image/png"),
+    )
+
+
+@ni_app.get("/docx-proxy/{job_id}")
+async def proxy_download(job_id: str) -> Response:
+    """将 DOCX 下载请求代理到后端。"""
+    url = f"{config.API_BASE_URL}/jobs/{job_id}/download"
+    async with httpx.AsyncClient(trust_env=False) as client:
+        resp = await client.get(url)
+    filename = resp.headers.get("content-disposition", "filename=output.docx").split("filename=")[-1]
+    return Response(
+        content=resp.content,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @ui.page("/")
