@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 import uvicorn
+from contextlib import asynccontextmanager
 from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
@@ -196,29 +197,13 @@ class JobStore:
         _db.delete(job_id)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# FastAPI 应用
-# ──────────────────────────────────────────────────────────────────────────────
-
-app = FastAPI(
-    title="Screen-Export",
-    root_path=config.BACKEND_ROOT_PATH,
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 _store = JobStore()
 
 
 # ── 启动恢复：从 SQLite 重建内存状态 ──────────────────
 
-@app.on_event("startup")
-async def _restore_from_db() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """服务启动时从 SQLite 恢复所有历史 job 到内存。"""
     for row in _db.load_all():
         job_id = row["job_id"]
@@ -257,6 +242,25 @@ async def _restore_from_db() -> None:
             created_at=row["created_at"],
         )
         _store._jobs[job_id] = state
+    yield
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FastAPI 应用
+# ──────────────────────────────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="Screen-Export",
+    root_path=config.BACKEND_ROOT_PATH,
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ── Pydantic 模型 ────────────────────────────────────
@@ -271,8 +275,12 @@ class ProcessRequest(BaseModel):
 class JobResponse(BaseModel):
     job_id: str
     status: str
+    video_filename: str
     screenshot_count: int
+    output_filename: str
     error_message: str
+    has_screenshots: bool
+    has_docx: bool
 
 
 class JobListItem(BaseModel):
@@ -391,8 +399,15 @@ async def get_job(job_id: str) -> JobResponse:
     return JobResponse(
         job_id=state.job_id,
         status=state.status.value,
+        video_filename=state.video_filename,
         screenshot_count=state.screenshot_count,
+        output_filename=state.output_filename,
         error_message=state.error_message,
+        has_screenshots=(
+            state.screenshots_dir.exists()
+            and any(state.screenshots_dir.glob("page_*.png"))
+        ),
+        has_docx=state.output_path.exists(),
     )
 
 

@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>视频截图提取</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.5/dist/docx-preview.min.js"></script> -->
+  <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+  <script src="https://unpkg.com/docx-preview/dist/docx-preview.min.js"></script>
   <style>
     /* 自定义滚动条 */
     #log::-webkit-scrollbar { width: 4px; }
@@ -202,6 +205,101 @@
   <div id="history-list" class="flex-1 overflow-y-auto divide-y divide-slate-100"></div>
 </aside>
 
+<!-- ── 图片灯箱 ──────────────────────────────────────── -->
+<div id="lightbox" class="fixed inset-0 bg-black/90 z-[60] hidden items-center justify-center"
+  onclick="lbBackdropClick(event)">
+  <button
+    title="关闭"
+    class="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/25 text-white transition-colors"
+    onclick="closeLightbox()">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+  </button>
+  <button id="lb-prev"
+    title="上一张"
+    class="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/25
+           text-white transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+    onclick="lbNav(-1)">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </button>
+  <img id="lb-img" src="" alt="" class="max-w-[85vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"/>
+  <button id="lb-next"
+    title="下一张"
+    class="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/25
+           text-white transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+    onclick="lbNav(1)">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+    </svg>
+  </button>
+  <div class="absolute bottom-5 left-1/2 -translate-x-1/2 text-center pointer-events-none space-y-0.5">
+    <p id="lb-counter" class="text-white/60 text-sm font-medium"></p>
+    <p id="lb-name" class="text-white/35 text-xs max-w-xs truncate mx-auto"></p>
+  </div>
+</div>
+
+<!-- ── DOCX 完成弹窗 ──────────────────────────────────── -->
+<div id="docx-modal" class="fixed inset-0 bg-black/50 z-[60] hidden items-center justify-center"
+  onclick="closeDocxModal(event)">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden"
+    onclick="event.stopPropagation()">
+    <!-- 顶部 -->
+    <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-800">DOCX 已生成</h3>
+          <p id="docx-modal-info" class="text-xs text-slate-400 mt-0.5"></p>
+        </div>
+      </div>
+      <button onclick="closeDocxModal()" title="关闭" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <!-- DOCX 内容预览 -->
+    <div id="docx-preview-container" class="px-4 py-3 bg-slate-100 overflow-y-auto" style="height:520px">
+      <div id="docx-preview-loading" class="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
+        <svg class="w-8 h-8 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span class="text-sm">正在加载文档预览…</span>
+      </div>
+      <div id="docx-preview-error" class="hidden flex-col items-center justify-center h-full gap-2 text-red-400">
+        <span class="text-sm">文档预览加载失败，请直接下载查看</span>
+      </div>
+      <div id="docx-preview-body" class="hidden"></div>
+    </div>
+    <!-- 操作按钮 -->
+    <div class="px-6 pb-5 flex gap-3">
+      <button onclick="closeDocxModal()"
+        class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium
+               hover:bg-slate-50 transition-colors">
+        关闭
+      </button>
+      <button id="docx-modal-dl"
+        class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+               bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold
+               transition-colors shadow-sm shadow-emerald-200">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        下载 DOCX
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Toast 提示 ─────────────────────────────────────── -->
 <div id="toast"
   class="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-sm font-medium
@@ -215,6 +313,7 @@ let fileBytes = null;
 let filename = '';
 let allScreenshots = [];
 let currentPage = 0;
+let lightboxIndex = 0;
 const PAGE_SIZE = 6;
 
 // ── DOM 引用 ─────────────────────────────────────────────
@@ -378,10 +477,12 @@ function renderPage(jid) {
   const pageFiles = allScreenshots.slice(start, start + PAGE_SIZE);
 
   previewGrid.innerHTML = '';
-  pageFiles.forEach(name => {
+  pageFiles.forEach((name, idx) => {
+    const globalIdx = start + idx;
     const url = `./jobs/${jid}/screenshots/${name}`;
     const card = document.createElement('div');
-    card.className = 'rounded-lg overflow-hidden border border-slate-200 bg-slate-50';
+    card.className = 'rounded-lg overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all';
+    card.addEventListener('click', () => openLightbox(globalIdx));
     card.innerHTML = `
       <img src="${url}" alt="${name}" class="w-full object-cover aspect-video" loading="lazy"/>
       <p class="text-xs text-center text-slate-400 py-1 px-1 truncate">${name}</p>`;
@@ -425,9 +526,10 @@ async function pollUntilDone(jid) {
       if (!res.ok) continue;
       const job = await res.json();
       if (job.status === 'done') {
-        setStatus('DOCX 已生成，点击下载');
+        setStatus('DOCX 已生成');
         setButtons({ download: true });
         showToast('DOCX 生成完成！', 'success');
+        openDocxModal(jid);
         return;
       } else if (job.status === 'error') {
         setStatus(`生成失败：${job.error_message}`);
@@ -534,6 +636,21 @@ async function viewHistoryJob(jid) {
   jobId = jid;
   allScreenshots = [];
   currentPage = 0;
+
+  // 根据任务状态启用对应按钮
+  try {
+    const res = await fetch(`./jobs/${jid}`);
+    if (res.ok) {
+      const job = await res.json();
+      setButtons({
+        start:    !!fileBytes,
+        generate: job.has_screenshots,
+        download: job.has_docx,
+      });
+      setStatus(`已加载历史记录：${job.video_filename || jid}`);
+    }
+  } catch (_) {}
+
   await loadScreenshots(jid);
   previewSection.scrollIntoView({ behavior: 'smooth' });
 }
@@ -549,6 +666,19 @@ async function deleteJob(jid, btn) {
     btn.closest('div.px-6').remove();
     if (historyList.children.length === 0) {
       historyList.innerHTML = '<p class="px-6 py-8 text-sm text-slate-400 text-center">暂无历史记录</p>';
+    }
+    // 若删除的是当前正在展示的任务，则重置页面状态
+    if (jid === jobId) {
+      jobId = null;
+      allScreenshots = [];
+      currentPage = 0;
+      previewSection.classList.add('hidden');
+      progressSection.classList.add('hidden');
+      previewGrid.innerHTML = '';
+      logClear();
+      setProgress(0);
+      setStatus('');
+      setButtons({ start: !!fileBytes, generate: false, download: false });
     }
   } catch (err) {
     showToast(`删除失败：${err.message}`, 'error');
@@ -578,6 +708,103 @@ function setButtons({ start, generate, download } = {}) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── 灯箱 ──────────────────────────────────────────────
+function openLightbox(idx) {
+  lightboxIndex = idx;
+  const lb = document.getElementById('lightbox');
+  lb.classList.remove('hidden');
+  lb.classList.add('flex');
+  lbRender();
+  document.addEventListener('keydown', lbKeyHandler);
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('lightbox');
+  lb.classList.add('hidden');
+  lb.classList.remove('flex');
+  document.removeEventListener('keydown', lbKeyHandler);
+}
+
+function lbRender() {
+  const total = allScreenshots.length;
+  const name = allScreenshots[lightboxIndex];
+  document.getElementById('lb-img').src = `./jobs/${jobId}/screenshots/${name}`;
+  document.getElementById('lb-counter').textContent = `${lightboxIndex + 1} / ${total}`;
+  document.getElementById('lb-name').textContent = name;
+  document.getElementById('lb-prev').disabled = lightboxIndex === 0;
+  document.getElementById('lb-next').disabled = lightboxIndex >= total - 1;
+}
+
+function lbNav(dir) {
+  const next = lightboxIndex + dir;
+  if (next >= 0 && next < allScreenshots.length) {
+    lightboxIndex = next;
+    lbRender();
+  }
+}
+
+function lbBackdropClick(e) {
+  if (e.target === document.getElementById('lightbox')) closeLightbox();
+}
+
+function lbKeyHandler(e) {
+  if (e.key === 'ArrowLeft')  lbNav(-1);
+  if (e.key === 'ArrowRight') lbNav(1);
+  if (e.key === 'Escape')     closeLightbox();
+}
+
+// ── DOCX 完成弹窗 ───────────────────────────────────────
+function openDocxModal(jid) {
+  const modal = document.getElementById('docx-modal');
+  document.getElementById('docx-modal-info').textContent =
+    `共 ${allScreenshots.length} 张截图`;
+
+  // 重置预览区状态
+  const loading = document.getElementById('docx-preview-loading');
+  const errEl   = document.getElementById('docx-preview-error');
+  const body    = document.getElementById('docx-preview-body');
+  loading.classList.remove('hidden'); loading.classList.add('flex');
+  errEl.classList.add('hidden');      errEl.classList.remove('flex');
+  body.classList.add('hidden');
+  body.innerHTML = '';
+
+  document.getElementById('docx-modal-dl').onclick = () => {
+    window.open(`./jobs/${jid}/download`, '_blank');
+  };
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  // 异步加载并渲染 DOCX
+  fetch(`./jobs/${jid}/download`)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(buf => {
+      const options = {
+        ignoreWidth: true,
+        ignoreFonts: false,
+        breakPages: true,
+        useBase64URL: true,
+      };
+      return window.docx.renderAsync(buf, body, null, options);
+    })
+    .then(() => {
+      loading.classList.add('hidden');   loading.classList.remove('flex');
+      body.classList.remove('hidden');
+    })
+    .catch(err => {
+      console.error('docx-preview error:', err);
+      loading.classList.add('hidden');   loading.classList.remove('flex');
+      errEl.classList.remove('hidden');  errEl.classList.add('flex');
+    });
+}
+
+function closeDocxModal(e) {
+  if (e && e.target !== document.getElementById('docx-modal')) return;
+  const modal = document.getElementById('docx-modal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
 
 function showToast(msg, type = 'success') {
   const toast = document.getElementById('toast');
