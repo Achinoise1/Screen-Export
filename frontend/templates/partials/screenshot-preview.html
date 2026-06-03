@@ -1,0 +1,22 @@
+<!-- ── 截图预览 ────────────────────────────────────────── -->
+<section id="preview-section" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hidden">
+  <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+    <h2 class="text-base font-semibold text-slate-700">截图预览 <span id="preview-count" class="text-slate-400 font-normal text-sm"></span></h2>
+    <div class="flex items-center gap-2">
+      <button id="btn-prev"
+        class="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" disabled>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <span id="page-label" class="text-xs text-slate-500 min-w-16 text-center"></span>
+      <button id="btn-next"
+        class="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" disabled>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div id="preview-grid" class="p-4 grid grid-cols-3 gap-3"></div>
+</section>

@@ -1,0 +1,35 @@
+<!-- ── 图片灯箱 ──────────────────────────────────────── -->
+<div id="lightbox" class="fixed inset-0 bg-black/90 z-[60] hidden items-center justify-center"
+  onclick="lbBackdropClick(event)">
+  <button
+    title="关闭"
+    class="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/25 text-white transition-colors"
+    onclick="closeLightbox()">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+  </button>
+  <button id="lb-prev"
+    title="上一张"
+    class="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/25
+           text-white transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+    onclick="lbNav(-1)">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </button>
+  <img id="lb-img" src="" alt="" class="max-w-[85vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"/>
+  <button id="lb-next"
+    title="下一张"
+    class="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/25
+           text-white transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+    onclick="lbNav(1)">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+    </svg>
+  </button>
+  <div class="absolute bottom-5 left-1/2 -translate-x-1/2 text-center pointer-events-none space-y-0.5">
+    <p id="lb-counter" class="text-white/60 text-sm font-medium"></p>
+    <p id="lb-name" class="text-white/35 text-xs max-w-xs truncate mx-auto"></p>
+  </div>
+</div>

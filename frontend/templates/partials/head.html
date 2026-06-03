@@ -1,0 +1,29 @@
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>视频截图提取</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.5/dist/docx-preview.min.js"></script> -->
+  <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+  <script src="https://unpkg.com/docx-preview/dist/docx-preview.min.js"></script>
+  <style>
+    /* 自定义滚动条 */
+    #log::-webkit-scrollbar { width: 4px; }
+    #log::-webkit-scrollbar-track { background: #1e293b; }
+    #log::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+
+    /* 拖拽高亮 */
+    #drop-zone.dragover {
+      border-color: #6366f1;
+      background-color: #eef2ff;
+    }
+
+    /* 状态徽章 */
+    .badge-pending    { @apply bg-slate-100 text-slate-600; }
+    .badge-processing { @apply bg-blue-100 text-blue-700; }
+    .badge-ready      { @apply bg-yellow-100 text-yellow-700; }
+    .badge-generating { @apply bg-purple-100 text-purple-700; }
+    .badge-done       { @apply bg-green-100 text-green-700; }
+    .badge-error      { @apply bg-red-100 text-red-700; }
+  </style>
+</head>

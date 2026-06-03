@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+{% include "partials/head.html" %}
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+{% include "partials/header.html" %}
+
+<main class="max-w-5xl mx-auto px-6 py-8 space-y-6">
+  {% include "partials/upload.html" %}
+  {% include "partials/param-config.html" %}
+  {% include "partials/action-buttons.html" %}
+  {% include "partials/progress.html" %}
+  {% include "partials/screenshot-preview.html" %}
+</main>
+
+{% include "partials/history-sidebar.html" %}
+{% include "partials/lightbox.html" %}
+{% include "partials/docx-modal.html" %}
+{% include "partials/toast.html" %}
+
+<script src="{{ request.url_for('static', path='js/app.js') }}"></script>
+</body>
+</html>

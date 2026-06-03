@@ -6,8 +6,9 @@ import uuid
 from pathlib import Path
 
 import config
-from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.templating import Jinja2Templates
 
 from backend.processor import ProcessParams
 from .enums import JobStatus
@@ -15,15 +16,16 @@ from .models import JobListItem, JobResponse, ProcessRequest
 from .store import _store
 from .tasks import _run_docx_builder, _run_processor, _sse_generator
 
-_FRONTEND_HTML = Path(__file__).parent.parent / "frontend" / "index.html"
+_TEMPLATES_DIR = Path(__file__).parent.parent / "frontend" / "templates"
+templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 router = APIRouter()
 
 
-@router.get("/", response_class=HTMLResponse)
-async def index() -> HTMLResponse:
+@router.get("/")
+async def index(request: Request):
     """Return the frontend single-page app."""
-    return HTMLResponse(_FRONTEND_HTML.read_text(encoding="utf-8"))
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @router.get("/jobs", response_model=list[JobListItem])

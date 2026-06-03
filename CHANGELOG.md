@@ -2,6 +2,22 @@
 
 ### Unreleased
 
+#### refactor: 将前端单文件拆分为 Jinja2 模板分区与静态 JS
+
+**前端**
+- 将 822 行的 `index.html` 拆分为 12 个 Jinja2 分区模板（`partials/`）与独立 JS 文件
+- 新增 `frontend/templates/index.html` 薄装配层，通过 `{% include %}` 组装各分区
+- 将内联 `<script>` 提取为独立静态文件 `frontend/static/js/app.js`
+- 分区包含：`head`、`header`、`upload`、`param-config`、`action-buttons`、`progress`、`screenshot-preview`、`history-sidebar`、`lightbox`、`docx-modal`、`toast`
+
+**后端**
+- 路由层改用 `Jinja2Templates.TemplateResponse` 替代直接读取 HTML 文件（适配 Starlette 1.x 新签名）
+- 主入口新增 `/static` 静态文件挂载，通过 `StaticFiles` 服务前端 JS 资源
+
+---
+
+### Unreleased
+
 #### refactor: 将后端入口拆分为多个职责单一的模块
 
 **后端**
