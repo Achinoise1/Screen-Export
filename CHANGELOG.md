@@ -2,6 +2,16 @@
 
 ### Unreleased
 
+#### docs: 将初始化 skill 更名并重写部署模式文档
+
+**构建/配置**
+- Copilot 初始化 skill 更名为 `screenshot-export-init`，日志与 PID 文件路径同步更新
+- 部署模式文档由手动步骤改写为 `deploy.zsh` 使用说明，涵盖首次部署（`--init`）、增量更新及自动回滚机制
+
+---
+
+### Unreleased
+
 #### feat: 支持自定义 DOCX 每行图片列数并重命名为 Screenshot-Export
 
 **前端**

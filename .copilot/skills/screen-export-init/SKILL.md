@@ -1,12 +1,12 @@
 ---
-name: screen-export-init
-description: "Init skill for Screen-Export project. Sets up Python .venv, installs deps, and starts the FastAPI backend. Modes: init (default, full setup + run), install only (setup without starting server), run only (start existing venv server), deploy (show deployment instructions for nginx sub-website)."
-argument-hint: "init (default) | install only | run only | deploy"
+name: screenshot-export-init
+description: "Init skill for Screenshot-Export project. Sets up Python .venv, installs deps, and starts the FastAPI backend. Modes: init (default, full setup + run), install only (setup without starting server), run only (start existing venv server), deploy (run deploy.zsh for production — use '--init' for first-time deploy, default for updates)."
+argument-hint: "init (default) | install only | run only | deploy [--init]"
 ---
 
-# screen-export-init Skill
+# screenshot-export-init Skill
 
-Automates environment setup and server startup for the Screen-Export project.
+Automates environment setup and server startup for the Screenshot-Export project.
 
 ## Project Context
 
@@ -60,8 +60,8 @@ Report: "✅ Dependencies installed"
 **Step 4 — Start server (background)**
 
 ```bash
-nohup .venv/bin/python backend/main.py > /tmp/screen-export.log 2>&1 &
-echo $! > /tmp/screen-export.pid
+nohup .venv/bin/python backend/main.py > /tmp/screenshot-export.log 2>&1 &
+echo $! > /tmp/screenshot-export.pid
 ```
 
 Wait 3 seconds for startup.
@@ -73,7 +73,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/
 ```
 
 - If response is `200`: report "✅ Server is running at http://localhost:8001/"
-- If not: show last 20 lines of `/tmp/screen-export.log` and report the error
+- If not: show last 20 lines of `/tmp/screenshot-export.log` and report the error
 
 ---
 
@@ -94,7 +94,7 @@ Assume `.venv` already exists. Just start the server.
 **Step 1 — Check venv exists**
 
 ```bash
-ls .venv/bin/python 2>/dev/null || echo "ERROR: .venv not found — run 'screen-export-init' first"
+ls .venv/bin/python 2>/dev/null || echo "ERROR: .venv not found — run 'screenshot-export-init' first"
 ```
 
 If `.venv` is missing, abort and tell the user to run `init` mode first.
@@ -118,7 +118,7 @@ Execute **Step 4** from `init` mode, then verify with **Step 5**.
 To stop the background server:
 
 ```bash
-kill $(cat /tmp/screen-export.pid) 2>/dev/null && echo "Server stopped"
+kill $(cat /tmp/screenshot-export.pid) 2>/dev/null && echo "Server stopped"
 ```
 
 ---
@@ -135,62 +135,60 @@ kill $(cat /tmp/screen-export.pid) 2>/dev/null && echo "Server stopped"
 
 ## Mode: `deploy`
 
-Show the steps to deploy Screen-Export as a sub-website under an existing nginx static site.
+Deploy Screenshot-Export to the production server using `deploy.zsh`.
 
-**Target sub-path**: `/tools/screenshot-export`  
-**Deploy files**: already prepared in the `deploy/` directory of the repo.
+### Configuration (top of `deploy.zsh`)
 
-**Step 1 — Copy project to deploy server**
+| Variable | Value | Purpose |
+|---|---|---|
+| `REMOTE` | `server` | SSH host alias for the deploy target |
+| `REMOTE_DIR` | `/data/projs/Screenshot-Export` | Project root on the server |
+| `DATA_DIR` | `/var/screenshot-export-data` | Persistent data directory (must match `SCREENSHOT_EXPORT_DATA_DIR` in the systemd service) |
 
-```bash
-# On deploy server — adjust path as needed
-git clone <repo-url> /opt/screen-export
-cd /opt/screen-export
+---
+
+### First-time deploy: `--init`
+
+Run from the repo root:
+
+```zsh
+./deploy.zsh --init
 ```
 
-**Step 2 — Set up the environment on the deploy server**
+What it does:
 
-Run `screen-export-init install only` (or manually):
-```bash
-python3 -m venv .venv --without-pip
-curl -sS https://bootstrap.pypa.io/get-pip.py | .venv/bin/python3
-.venv/bin/pip install -r requirements.txt
+1. **Package** — `tar czf package.tar.gz backend/ deploy/ frontend/ config.py requirements.txt`
+2. **Transfer** — `scp package.tar.gz server:/tmp/` then removes the local tarball
+3. **Remote dir** — `mkdir -p $REMOTE_DIR`, extract tarball, `chown -R www-data:www-data`
+4. **Data dir** — `mkdir -p $DATA_DIR && chown -R www-data:www-data $DATA_DIR`
+5. **Python 3.11** — installs via `deadsnakes` PPA, creates `.venv`, installs `requirements.txt`
+6. **Nginx** — copies `deploy/nginx-snippet.conf` to `/etc/nginx/snippets/screenshot-export/`, runs `nginx -t && rlnginx`
+7. **Systemd** — copies `deploy/screenshot-export.service` to `/etc/systemd/system/`, runs `sysdr && systemctl enable --now screenshot-export.service`
+
+> **Shell aliases used on server**: `rlnginx` (reload nginx), `sysdr` (systemctl daemon-reload), `rstse` (restart screenshot-export service).
+
+---
+
+### Update deploy (default)
+
+```zsh
+./deploy.zsh
 ```
 
-**Step 3 — Install the systemd service**
+What it does:
 
-```bash
-# Edit User= and WorkingDirectory= in the file first if needed
-sudo cp deploy/screen-export.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable screen-export
-sudo systemctl start screen-export
-```
+1. **Package & Transfer** — same as above
+2. **Extract** — unpacks tarball into existing `$REMOTE_DIR`, `chown -R www-data:www-data`
+3. **Restart service** — runs `rstse` on the server
 
-Verify the backend is up:
-```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/
-# Expected: 200
-```
+---
 
-**Step 4 — Add nginx location block**
+### Automatic rollback on error
 
-Open your nginx server config (e.g. `/etc/nginx/sites-enabled/yoursite`) and paste
-the contents of `deploy/nginx-snippet.conf` inside the `server { ... }` block,
-**before** any catch-all `location /` block.
+If the script exits with an error, the `cleanup` trap runs automatically:
 
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-**Step 5 — Verify end-to-end**
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" https://yoursite.com/tools/screenshot-export/
-# Expected: 200
-```
-
-Open `https://yoursite.com/tools/screenshot-export/` in a browser — the upload UI should appear.
+- Removes any local `package.tar.gz` and remote `/tmp/package.tar.gz`
+- In `--init` mode only: rolls back the systemd service, nginx snippet, and remote directory if they were created in that run
 
 ---
 
@@ -198,5 +196,6 @@ Open `https://yoursite.com/tools/screenshot-export/` in a browser — the upload
 
 | File | Purpose |
 |---|---|
-| `deploy/screen-export.service` | Systemd unit template |
-| `deploy/nginx-snippet.conf` | Nginx location block to paste into server config |
+| `deploy.zsh` | Main deploy script (run from repo root) |
+| `deploy/screenshot-export.service` | Systemd unit template |
+| `deploy/nginx-snippet.conf` | Nginx snippet copied to `/etc/nginx/snippets/screenshot-export/` |
