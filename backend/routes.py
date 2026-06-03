@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from backend.processor import ProcessParams
 from .enums import JobStatus
-from .models import JobListItem, JobResponse, ProcessRequest
+from .models import DocxRequest, JobListItem, JobResponse, ProcessRequest
 from .store import _store
 from .tasks import _run_docx_builder, _run_processor, _sse_generator
 
@@ -165,7 +165,7 @@ async def get_screenshot(job_id: str, filename: str) -> FileResponse:
 
 
 @router.post("/jobs/{job_id}/generate-docx")
-async def generate_docx(job_id: str, background: BackgroundTasks) -> dict:
+async def generate_docx(job_id: str, background: BackgroundTasks, req: DocxRequest = DocxRequest()) -> dict:
     """Start the DOCX generation background task."""
     try:
         state = _store.get(job_id)
@@ -176,7 +176,7 @@ async def generate_docx(job_id: str, background: BackgroundTasks) -> dict:
         raise HTTPException(status_code=409, detail=f"Job 状态为 {state.status}，需先完成视频处理")
 
     _store.update_status(job_id, JobStatus.GENERATING)
-    background.add_task(_run_docx_builder, job_id)
+    background.add_task(_run_docx_builder, job_id, req.cols)
     return {"job_id": job_id, "status": JobStatus.GENERATING}
 
 

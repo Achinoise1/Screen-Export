@@ -1,29 +1,29 @@
 [Unit]
-Description=Screen-Export FastAPI Backend
-Documentation=https://github.com/Achinoise1/Screen-Export
+Description=Screenshot-Export FastAPI Backend
+Documentation=https://github.com/Achinoise1/Screenshot-Export
 After=network.target
 
 [Service]
 Type=simple
 # ── Adjust these two lines to match your deploy server ──────────────────────
 User=www-data
-WorkingDirectory=/data/projs/Screen-Export
+WorkingDirectory=/data/projs/Screenshot-Export
 # ────────────────────────────────────────────────────────────────────────────
 
-ExecStart=/data/projs/Screen-Export/.venv/bin/python backend/main.py
+ExecStart=/data/projs/Screenshot-Export/.venv/bin/python backend/main.py
 
 # Sub-path configuration — must match the nginx location block
 Environment="BACKEND_ROOT_PATH=/tools/screenshot-export"
 Environment="BACKEND_PORT=8001"
 
 # Optional: relocate data outside the project directory
-Environment="SCREEN_EXPORT_DATA_DIR=/var/screen-export-data"
+Environment="SCREENSHOT_EXPORT_DATA_DIR=/var/screenshot-export-data"
 
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=screen-export
+SyslogIdentifier=screenshot-export
 
 [Install]
 WantedBy=multi-user.target

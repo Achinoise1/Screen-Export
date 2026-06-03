@@ -128,7 +128,7 @@ kill $(cat /tmp/screen-export.pid) 2>/dev/null && echo "Server stopped"
 | Variable | Default | Purpose |
 |---|---|---|
 | `BACKEND_PORT` | `8001` | Change the listening port |
-| `SCREEN_EXPORT_DATA_DIR` | `./data` | Relocate the data directory |
+| `SCREENSHOT_EXPORT_DATA_DIR` | `./data` | Relocate the data directory |
 | `BACKEND_ROOT_PATH` | `` | Nginx sub-path prefix (set for sub-website deploy) |
 
 ---

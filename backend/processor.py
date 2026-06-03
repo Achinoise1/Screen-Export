@@ -223,20 +223,20 @@ class VideoProcessor:
 
 class DocxBuilder:
     """
-    将截图目录下的图片整理成 Word 文档（3 列 × 2 行，每页 6 张）。
+    将截图目录下的图片整理成 Word 文档（每行 cols 张，每页 cols×2 张）。
 
     Usage:
-        builder = DocxBuilder(screenshots_dir, output_path)
+        builder = DocxBuilder(screenshots_dir, output_path, cols=2)
         builder.build()
     """
 
-    COLS: int = 3
     ROWS_PER_PAGE: int = 2
-    IMAGE_WIDTH_CM: float = 4.5
 
-    def __init__(self, screenshots_dir: Path, output_path: Path) -> None:
+    def __init__(self, screenshots_dir: Path, output_path: Path, cols: int = 2) -> None:
         self._screenshots_dir = screenshots_dir
         self._output_path = output_path
+        self.COLS = cols
+        self.IMAGE_WIDTH_CM = round(14.0 / cols, 1)
 
     # ── 公共接口 ──────────────────────────────────────
 

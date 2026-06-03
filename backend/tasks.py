@@ -18,9 +18,9 @@ async def _run_processor(job_id: str, params) -> None:
         _store.update_status(job_id, JobStatus.ERROR, error_message=str(exc))
 
 
-async def _run_docx_builder(job_id: str) -> None:
+async def _run_docx_builder(job_id: str, cols: int = 2) -> None:
     state = _store.get(job_id)
-    builder = DocxBuilder(state.screenshots_dir, state.output_path)
+    builder = DocxBuilder(state.screenshots_dir, state.output_path, cols=cols)
     try:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, builder.build)

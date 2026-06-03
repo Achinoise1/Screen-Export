@@ -2,6 +2,26 @@
 
 ### Unreleased
 
+#### feat: 支持自定义 DOCX 每行图片列数并重命名为 Screenshot-Export
+
+**前端**
+- 新增每行图片数参数输入框（默认 2，最大 3），生成 DOCX 时将列数提交至后端
+
+**后端**
+- DOCX 生成支持自定义列数，图片宽度随列数等比自动计算
+- 将 `root_path` 配置迁移至 uvicorn 启动参数，修复 nginx 子路径反向代理下的路由异常
+- API 标题更新为 Screenshot-Export
+
+**构建/配置**
+- 所有环境变量前缀由 `SCREEN_EXPORT_` 统一改为 `SCREENSHOT_EXPORT_`
+- 部署脚本及 systemd 路径、服务名更新为 `screenshot-export`
+- 新增 screenshot-export.service systemd 服务配置文件
+- 部署脚本的更新模式新增服务重启步骤
+
+---
+
+### Unreleased
+
 #### refactor: 将前端单文件拆分为 Jinja2 模板分区与静态 JS
 
 **前端**

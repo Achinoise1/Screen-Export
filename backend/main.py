@@ -30,8 +30,7 @@ from backend.store import lifespan
 _STATIC_DIR = Path(__file__).parent.parent / "frontend" / "static"
 
 app = FastAPI(
-    title="Screen-Export",
-    root_path=config.BACKEND_ROOT_PATH,
+    title="Screenshot-Export",
     lifespan=lifespan,
 )
 
@@ -51,5 +50,6 @@ if __name__ == "__main__":
         "backend.main:app",
         host="0.0.0.0",
         port=config.BACKEND_PORT,
+        root_path=config.BACKEND_ROOT_PATH,
         reload=False,
     )

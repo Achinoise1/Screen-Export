@@ -15,8 +15,8 @@ error() { echo "${BOLD}${RED}[✗]${RESET} $*" >&2; }
 
 # ── Config ────────────────────────────────────────────────────────────────────
 REMOTE=server
-REMOTE_DIR=/data/projs/Screen-Export
-DATA_DIR=/var/screen-export-data   # must match SCREEN_EXPORT_DATA_DIR in screen-export.service
+REMOTE_DIR=/data/projs/Screenshot-Export
+DATA_DIR=/var/screenshot-export-data   # must match SCREENSHOT_EXPORT_DATA_DIR in screenshot-export.service
 
 # ── State tracking (only roll back resources created by this run) ─────────────
 _MODE=${1:-update}
@@ -50,15 +50,15 @@ cleanup() {
     if [[ $_SERVICE_DEPLOYED -eq 1 ]]; then
       error "Rolling back systemd service..."
       ssh -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE" \
-        "systemctl disable --now screen-export.service 2>/dev/null; \
-         rm -f /etc/systemd/system/screen-export.service; \
+        "systemctl disable --now screenshot-export.service 2>/dev/null; \
+         rm -f /etc/systemd/system/screenshot-export.service; \
          systemctl daemon-reload" 2>/dev/null || true
     fi
 
     if [[ $_NGINX_DEPLOYED -eq 1 ]]; then
       error "Rolling back nginx config..."
       ssh -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE" \
-        "rm -f /etc/nginx/snippets/screen-export/nginx-snippet.conf" 2>/dev/null || true
+        "rm -f /etc/nginx/snippets/screenshot-export/nginx-snippet.conf" 2>/dev/null || true
     fi
 
     if [[ $_REMOTE_DIR_CREATED -eq 1 ]]; then
@@ -105,21 +105,22 @@ if [[ $1 == "--init" ]]; then
   info "Python environment set up."
 
   step "Setting up nginx configuration..."
-  ssh $REMOTE "mkdir -p /etc/nginx/snippets/screen-export"
-  scp deploy/nginx-snippet.conf $REMOTE:/etc/nginx/snippets/screen-export/nginx-snippet.conf
+  ssh $REMOTE "mkdir -p /etc/nginx/snippets/screenshot-export"
+  scp deploy/nginx-snippet.conf $REMOTE:/etc/nginx/snippets/screenshot-export/nginx-snippet.conf
   _NGINX_DEPLOYED=1
-  ssh $REMOTE "zsh -i -c 'chmod 644 /etc/nginx/snippets/screen-export/nginx-snippet.conf && nginx -t && rlnginx'"
+  ssh $REMOTE "zsh -i -c 'chmod 644 /etc/nginx/snippets/screenshot-export/nginx-snippet.conf && nginx -t && rlnginx'"
   info "Nginx configured."
 
   step "Setting up systemd service..."
-  scp deploy/screen-export.service $REMOTE:/etc/systemd/system/screen-export.service
+  scp deploy/screenshot-export.service $REMOTE:/etc/systemd/system/screenshot-export.service
   _SERVICE_DEPLOYED=1
-  ssh $REMOTE "zsh -i -c 'sysdr && systemctl enable --now screen-export.service'"
+  ssh $REMOTE "zsh -i -c 'sysdr && systemctl enable --now screenshot-export.service'"
   info "Systemd service configured and started."
 else
   step "Deploying build files..."
   ssh $REMOTE "tar xzf /tmp/package.tar.gz -C $REMOTE_DIR && rm /tmp/package.tar.gz"
   ssh $REMOTE "chown -R www-data:www-data $REMOTE_DIR"
+  ssh $REMOTE "zsh -i -c 'rstse'"
 fi
 
 info "Deployment complete. Your website should now be live."

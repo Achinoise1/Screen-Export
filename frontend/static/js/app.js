@@ -199,7 +199,12 @@ btnGenerate.addEventListener('click', async () => {
   setButtons({ generate: false });
   setStatus('生成 DOCX 中…');
   try {
-    const res = await fetch(`./jobs/${jobId}/generate-docx`, { method: 'POST' });
+    const cols = parseInt(document.getElementById('p-cols')?.value ?? '2', 10);
+    const res = await fetch(`./jobs/${jobId}/generate-docx`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cols }),
+    });
     if (!res.ok) throw new Error((await res.json()).detail);
     pollUntilDone(jobId);
   } catch (err) {

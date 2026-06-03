@@ -21,6 +21,10 @@ class JobResponse(BaseModel):
     has_docx: bool
 
 
+class DocxRequest(BaseModel):
+    cols: int = 2
+
+
 class JobListItem(BaseModel):
     job_id: str
     status: str
